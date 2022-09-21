@@ -37,8 +37,8 @@ start = 0
 
 def visOnePose(jointAngle=np.array([0,-30,80,30,80,30,20,-20,20,-20])*np.pi/180,t=5):
 	count = 0
-	for joint in joint_dict_human.keys():
-		p.resetJointState(humanId,joint_dict_human[joint],jointAngle[count])
+	for id in sorted(joint_dict_human.values()):
+		p.resetJointState(humanId,id,jointAngle[count])
 		count += 1
 	foot = p.getLinkState(humanId,15)
 	p.resetBasePositionAndOrientation(humanId,[0.8,0,0.85-foot[0][2]+0.025],p.getQuaternionFromEuler([1.57,0,3.14]))
