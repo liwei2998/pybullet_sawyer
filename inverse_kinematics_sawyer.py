@@ -3,73 +3,61 @@ import pybullet as p
 import time
 import math
 from datetime import datetime
-
+import util
+####################connection
 p.connect(p.GUI)
 # p.connect(p.DIRECT)
 
-# Load models and reset their bases
+###################model initialization
 p.loadURDF("plane.urdf",[0,0,0])
-humanId = p.loadURDF("sawyer_robot/sawyer_description/urdf/human.urdf",[0,0,0.])
+humanId = p.loadURDF("sawyer_robot/sawyer_description/urdf/human166.urdf",[0,0,0])
 humanpose = p.getBasePositionAndOrientation(humanId)
-p.resetBasePositionAndOrientation(humanId,[0.8,0,0.85],p.getQuaternionFromEuler([1.57,0,3.14])) # x0_human=0.8
+p.resetBasePositionAndOrientation(humanId,[1.8,0,0.95],p.getQuaternionFromEuler([0,0,3.14])) # x0_human=0.8
 sawyerId = p.loadURDF("sawyer_robot/sawyer_description/urdf/sawyer.urdf",[-0.4,0,0.91488]) # x0_robot=-0.4
 
+###################robot joint information
 # Sawyer active joints id: 3,4,8,9,10,11,13,16(eef)
 sawyerEndEffectorIndex = 16
 n_joints_sawyer = p.getNumJoints(sawyerId)
-# Human activate joints id: 0,1,4,5,7,8,10,11,13,14
+joint_dict_sawyer={'right_j0': 3, 'head_pan': 4, 'right_j1': 8, 'right_j2': 9, \
+				'right_j3': 10, 'right_j4': 11, 'right_j5': 13, 'right_j6': 16}
 n_joints_human = p.getNumJoints(humanId)
 
-# # Get joints information
-# for i in range(n_joints_human):
-# 	infoJoints = p.getJointInfo(humanId,i)
-# 	print ('\njoint information',infoJoints[0],infoJoints[1],infoJoints[2],infoJoints[3])
-# 	joint_dict_human[str(infoJoints[1].decode('utf-8'))] = int(infoJoints[0])
+#####################visualization and calculate inverse kinematics
+joint_dict = util.get_joint_info(humanId,n_joints_human)
+print ('\n###############################\n',joint_dict)
+vis = util.visualization(humanId)
+vis.vis_local_frame([28,36],True)
+# vis.add_debug_param(n_joints_human)
+# #####################human body ik
+pos = [[0.6,-0.3,0.],[0.6,0.3,0.]]
+eef_hum = [21,30] # right-hand, left-hand 
+curr_joint_pos = list(np.array(p.getJointStates(humanId,np.array([*joint_dict.values()])[:,0]))[:,0])
+jointPoses = p.calculateInverseKinematics2(humanId,eef_hum,pos,currentPositions=curr_joint_pos)
+print ('\n invese unselected',jointPoses,type(jointPoses))
+# vis.vis_one_pos(n_joints_human,jointPoses)
+# vis.vis_static(20)
+ik = util.get_ik(humanId,8.78)
+cvae_pos = list(np.array([36.8,12.5,0.0,47.2,66.1,0.0,47.2,66.1,2.4,23.2,2.4,23.2])*np.pi/180)
+jointPoses = ik.accurateIK(eef_hum,pos,joint_dict,curr_joint_pos,cvae_pos)
+print ('\n invese selected',jointPoses,type(jointPoses))
+vis.vis_one_pos(n_joints_human,jointPoses)
+vis.vis_static(500)
+# # Human activate joints id: 0,1,4,5,7,8,10,11,13,14
+# 
 
-joint_dict_human={'upperbody': 0, 'neck': 1, 'right_shoulder': 4, 'right_elbow': 5, \
-				  'left_shoulder': 7, 'left_elbow': 8, 'right_hip': 10, 'right_knee': 11,\
-				  'left_hip': 13, 'left_knee': 14}
- 
-joint_dict_sawyer={'right_j0': 3, 'head_pan': 4, 'right_j1': 8, 'right_j2': 9, \
-				   'right_j3': 10, 'right_j4': 11, 'right_j5': 13, 'right_j6': 16}
+# joint_dict_human={'upperbody': 0, 'neck': 1, 'right_shoulder': 4, 'right_elbow': 5, \
+# 				'left_shoulder': 7, 'left_elbow': 8, 'right_hip': 10, 'right_knee': 11,\
+# 				'left_hip': 13, 'left_knee': 14}
 
-start = 0
 
-def visOnePose(jointAngle=np.array([0,-30,80,30,80,30,20,-20,20,-20])*np.pi/180,t=5):
-	count = 0
-	for id in sorted(joint_dict_human.values()):
-		p.resetJointState(humanId,id,jointAngle[count])
-		count += 1
-	foot = p.getLinkState(humanId,15)
-	p.resetBasePositionAndOrientation(humanId,[0.8,0,0.85-foot[0][2]+0.025],p.getQuaternionFromEuler([1.57,0,3.14]))
-
-	global start
-	while start <= t:
-		start += 0.1
-		time.sleep(0.1)
-
-def visMultiPoses(jointAngle,n_poses=10,t=5):
-	for i in range(n_poses):
-		count = 0
-		for joint in joint_dict_human.keys():
-			p.resetJointState(humanId,joint_dict_human[joint],jointAngle[i][count])
-			count += 1
-		foot = p.getLinkState(humanId,15)
-		p.resetBasePositionAndOrientation(humanId,[0.8,0,0.85-foot[0][2]+0.025],p.getQuaternionFromEuler([1.57,0,3.14]))
-
-		global start
-		while start <= t:
-			start += 0.1
-			time.sleep(0.1)		
-
-visOnePose()
-# #joint damping coefficents
-# jd=[0.001]*numJoints
-
-# # Set eef pos for sawyer
-# pos = [0.5,0.,1.6]
-# jointPoses = p.calculateInverseKinematics(sawyerId,sawyerEndEffectorIndex,pos,jointDamping=jd)
-
+# Set eef pos for human
+# pos = [[0.6,0,-0.6],[0.6,0,0.3]]
+# eef_hum = [6,9] # right-hand, left-hand 
+# curr_joint_pos = list(np.array(p.getJointStates(humanId,joint_id))[:,0])
+# jointPoses = p.calculateInverseKinematics2(humanId,eef_hum,pos,currentPositions=curr_joint_pos)
+# print ('\n invese',jointPoses,type(jointPoses))
+# visOnePose(jointAngle=jointPoses)
 # # Reset joint states
 # for i in range (numJoints):
 # 	jointInfo = p.getJointInfo(sawyerId, i)
